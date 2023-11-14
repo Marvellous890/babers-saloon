@@ -10,14 +10,6 @@ const { DateTime } = require("luxon");
 const { convertToWAT } = require("../../utils/datetime");
 
 const currentDateTimeWAT = DateTime.now().setZone("Africa/Lagos");
-//
-//desc login users
-//access private-depending on endpoint needs
-//routes /users/login
-const MAX_LOGIN_ATTEMPTS = 5;
-const COOLDOWN_PERIOD = 60 * 60 * 1000; // 1 hour in milliseconds
-
-const loginAttempts = new Map();
 
 const cookieOptions = {
   sameSite: "none",
@@ -25,6 +17,10 @@ const cookieOptions = {
   // domain: ".example.com"
 };
 
+//
+//desc login users
+//access private-depending on endpoint needs
+//routes /users/login
 const login_users = asynchandler(async (req, res) => {
   const { email, password } = req.body;
   const clientIp = req.clientIp;
@@ -34,30 +30,10 @@ const login_users = asynchandler(async (req, res) => {
     const attempts = loginAttempts.get(clientIp);
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
       return res.status(403).send("Too many login attempts. Try again later.");
-
-      /*const location = await getLocation(clientIp);
-      logger.error(
-        `user with id ${
-          user._id
-        } to many login attempts ${currentDateTimeWAT.toString()} - ${
-          res.statusCode
-        } - ${res.statusMessage} - ${req.originalUrl} - ${req.method} - ${
-          req.ip
-        } - ${req.session.id} - with IP: ${req.clientIp} from ${location}`
-      );*/
     }
   }
 
-  if (!email || !password) {
-    // const location = await getLocation(clientIp);
-
-    logger.error(
-      ` attempted log in at ${currentDateTimeWAT.toString()} - ${res.statusCode
-      } - ${res.statusMessage} - ${req.originalUrl} - ${req.method} - ${req.ip
-      }  - with IP: ${req.clientIp} from ${req.ip}`
-    );
-    return res.status(400).send("fields can not be empty");
-  }
+  if (!email || !password) return res.status(400).send("fields can not be empty");
 
   const user = await USER.findOne({ email });
   // console.log(user);
@@ -82,37 +58,9 @@ const login_users = asynchandler(async (req, res) => {
       "-password"
     );
 
-    // Log successful login
-    // const location = await getLocation(clientIp);
-    logger.info(
-      `user with id ${user._id
-      } logged in at ${currentDateTimeWAT.toString()} - ${res.statusCode} - ${res.statusMessage
-      } - ${req.originalUrl} - ${req.method} - ${req.ip}`
-    );
-
     // send user object and token
     res.json({ ...userWithoutPassword._doc, token, referralCount, });
   } else {
-    // Failed login attempt
-    // Track the login attempt
-    if (loginAttempts.has(clientIp)) {
-      loginAttempts.set(clientIp, loginAttempts.get(clientIp) + 1);
-    } else {
-      loginAttempts.set(clientIp, 1);
-      setTimeout(() => {
-        loginAttempts.delete(clientIp);
-      }, COOLDOWN_PERIOD);
-    }
-
-
-    // const location = await getLocation(clientIp);
-    logger.error(
-      `user with id ${user._id
-      } attempted to log in at ${currentDateTimeWAT.toString()} - ${res.statusCode
-      } - ${res.statusMessage} - ${req.originalUrl} - ${req.method} - ${req.ip
-      } -  - with IP: ${req.clientIp} from ${req.ip}`
-    );
-
     res.status(400).json({
       error: "Invalid credentials",
     });
@@ -123,8 +71,6 @@ const login_users = asynchandler(async (req, res) => {
 //access public
 //router /users/register
 const register_users = asynchandler(async (req, res) => {
-  const ip = req.ip;
-
   const {
     firstName,
     lastName,
@@ -190,7 +136,6 @@ const register_users = asynchandler(async (req, res) => {
   res.json({ ...updatereferral._doc, token });
 });
 
-
 //access  private
 //route /users/landing_page
 //desc landing user page
@@ -199,12 +144,12 @@ const landing_page = asynchandler(async (req, res) => {
     const { id } = req.auth;
 
     const user = await USER.findById(id);
-    if (!user) throw new Error("User not found");
-
+    if (!user)
+      throw Object.assign(new Error("User not found"), { statusCode: 404 });
     const shops = await SHOPS.find({ approved: true });
 
     // Define the order of subscription types
-    const subscriptionOrder = ['platinum', 'gold', 'basic'];
+    const subscriptionOrder = ["platinum", "gold", "basic"];
 
     // Sort shops based on subscription type and creation date
     shops.sort((a, b) => {
@@ -247,19 +192,20 @@ const landing_page = asynchandler(async (req, res) => {
     );
   } catch (error) {
     console.error(error);
-    throw new Error(`${error}`);
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
+    ;
   }
 });
+
 //access  public
 //route /users/landing_page
 //desc landing user page
 const landingpage = asynchandler(async (req, res) => {
   try {
-
     const shops = await SHOPS.find({ approved: true });
 
     // Define the order of subscription types
-    const subscriptionOrder = ['platinum', 'gold', 'basic'];
+    const subscriptionOrder = ["platinum", "gold", "basic"];
 
     // Sort shops based on subscription type and creation date
     shops.sort((a, b) => {
@@ -302,7 +248,7 @@ const landingpage = asynchandler(async (req, res) => {
     );
   } catch (error) {
     console.error(error);
-    throw new Error(`${error}`);
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
   }
 });
 
@@ -317,7 +263,9 @@ const getUser = asynchandler(async (req, res) => {
     if (id === user._id || process.env.role === "superadmin") {
       owner = true;
       if (!user) {
-        throw new Error("User not found");
+        throw Object.assign(new Error("user Not authorized"), {
+          statusCode: 404,
+        });
       }
 
       const referredUsers = await USER.find(
@@ -340,7 +288,7 @@ const getUser = asynchandler(async (req, res) => {
       throw new Error("unauthorized");
     }
   } catch (error) {
-    throw new Error(`${error}`);
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
   }
 });
 //desc get all users for admin
@@ -392,11 +340,11 @@ const getallusers = asynchandler(async (req, res) => {
         `users were fetched- ${res.statusCode} - ${res.statusMessage} - ${req.originalUrl} - ${req.method} - ${req.ip} - from ${req.ip}`
       );
     } else {
-      throw new Error("not authorized");
+      throw Object.assign(new Error("Not authorized"), { statusCode: 403 });
     }
   } catch (error) {
     console.log(error);
-    throw new Error(`${error}`);
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
   }
 });
 
@@ -404,7 +352,7 @@ const getallusers = asynchandler(async (req, res) => {
 //route /user/updateac
 //access private
 //data updateData
-const updateUser = async (req, res) => {
+const updateUser = asynchandler(async (req, res) => {
   const { userId } = req.params; // Get the user ID from the route parameters
   const clientIp = req.clientIp;
   const { id } = req.auth;
@@ -412,11 +360,13 @@ const updateUser = async (req, res) => {
 
   try {
     if (!userId) {
-      throw new Error("params is empty");
+      throw Object.assign(new Error("Fields cannot be empty"), { statusCode: 400 });
+      ;
     }
 
     if (!updateData) {
-      throw new Error("body is empty");
+      throw Object.assign(new Error("Fields cannot be empty"), { statusCode: 400 });
+      ;
     }
     const updatUser = await USER.findById(userId);
     console.log(updatUser._id);
@@ -424,14 +374,14 @@ const updateUser = async (req, res) => {
       !(userId === updatUser._id.toString()) ||
       !(process.env.role === "superadmin")
     ) {
-      throw new Error("not allowed");
+      throw Object.assign(new Error("Not authorized"), { statusCode: 403 });
     }
     const updatedUser = await USER.findByIdAndUpdate(userId, updateData, {
       new: true, // Return the updated user document
     });
 
     if (!updatedUser) {
-      throw new Error("user not found ");
+      throw Object.assign(new Error("User not  found"), { statusCode: 404 });
     }
 
     const token = generateToken(id);
@@ -447,9 +397,9 @@ const updateUser = async (req, res) => {
     );
   } catch (error) {
     console.error(error);
-    throw new Error("server Error");
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
   }
-};
+});
 const getLocation = asynchandler(async (ip) => {
   try {
     // Set endpoint and your access key
@@ -489,7 +439,7 @@ const forum_status = asynchandler(async (req, res) => {
       { new: true }
     );
     if (!updatedUser) {
-      throw new Error("User not found or blog_owner is already false");
+      throw Object.assign(new Error("error updating"), { statusCode: 400 });
     }
 
     const token = generateToken(id);
@@ -500,7 +450,7 @@ const forum_status = asynchandler(async (req, res) => {
       `admin with id ${id}, changed user with ${userId} forum status - ${res.statusCode} - ${res.statusMessage} - ${req.originalUrl} - ${req.method} - ${req.ip} - from ${req.ip} `
     );
   } catch (error) {
-    throw new Error(`${error}`);
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
   }
 });
 
@@ -534,7 +484,8 @@ const searchItems = asynchandler(async (req, res) => {
     );
   } catch (error) {
     console.error(error);
-    throw new Error(`${error}`);
+    throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
+    ;
   }
 });
 
@@ -547,5 +498,5 @@ module.exports = {
   getallusers,
   forum_status,
   searchItems,
-  landingpage
+  landingpage,
 };
