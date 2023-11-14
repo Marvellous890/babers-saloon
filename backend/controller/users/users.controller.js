@@ -148,11 +148,11 @@ const register_users = asynchandler(async (req, res) => {
 
   const findemail = await USER.findOne({ email: email });
   if (findemail) {
-    return res.status(403).send("user already exists");
+    return res.status(403).send("A user with this email already exists");
   }
 
   const exist = await USER.findOne({ userName: userName });
-  if (exist) return res.status(403).send("user Name already exist");
+  if (exist) return res.status(403).send("User name already exist");
 
   if (referralCode) {
     const re = await USER.find({ referCode: referralCode });
@@ -184,68 +184,10 @@ const register_users = asynchandler(async (req, res) => {
     { new: true }
   );
 
-  const location = getLocation(ip);
   const token = generateToken(createUsers._id);
-  let referredUsers;
-
-  if (referralCode) {
-    const referrer = await USER.findOne({ referCode: referralCode });
-    if (!referrer) {
-      throw new Error("Invalid referral code");
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const createUsers = await USER.create({
-      firstName,
-      middleName,
-      lastName,
-      email,
-      password: hashedPassword,
-      userName,
-      phoneNumber,
-      referredBy: referralCode,
-    });
-
-    const codeOne = createUsers._id.toString().slice(3, 7);
-    const codeTwo = firstName.toString().slice(0, 3);
-    const codeThree = firstName.toString().slice(0, 2);
-    const codeFour = userName.toString().slice(0, 2);
-    const referrerCode = `REF-${codeOne}${codeTwo}${codeThree}${codeFour}${codeTwo}`;
-
-    const updateReferral = await USER.findByIdAndUpdate(
-      createUsers._id,
-      { $set: { referCode: referrerCode } },
-      { new: true }
-    );
-
-    const location = await getLocation(ip);
-    const token = generateToken(createUsers._id);
-
-    referredUsers = await USER.find(
-      { referredBy: referrerCode },
-      "firstName lastName userName pictureUrl"
-    );
-
-    res.status(202).header("Authorization", `Bearer ${token}`).json({
-      status: "202",
-      message: updateReferral,
-      referralCount: referredUsers.length,
-      referredUsers: referredUsers,
-    });
-
-    logger.info(
-      `User with ID ${createUsers._id} was created at ${createUsers.createdAt} - ${res.statusCode} - ${res.statusMessage} - ${req.originalUrl} - ${req.method} - ${req.ip} - ${req.session.id} - from ${location}`
-    );
-  } else {
-    referredUsers = [];
-  }
-
-  // send token in cookie
 
   // send user object via cookie
-  res.json(updatereferral._doc);
+  res.json({ ...updatereferral._doc, token });
 });
 
 
