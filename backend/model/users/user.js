@@ -22,6 +22,11 @@ const USERS = mongoose.Schema(
       required: [true, "please add an email "],
       unique: true,
     },
+    phoneNumber: {
+      type: String,
+      required: [true, "please add a phone number"],
+      unique: true,
+    },
     password: {
       type: String,
       required: [true, "please add a password "],
@@ -38,14 +43,14 @@ const USERS = mongoose.Schema(
     },
     referCode: {
       type: String,
-      unique:true
+      unique: true
     },
     referredBy: {
       type: String,
     },
-    type:{
-      type:String,
-      default:'basic',
+    type: {
+      type: String,
+      default: 'basic',
     },
     pictureUrl: { type: String },
   },

@@ -25,14 +25,6 @@ const login_users = asynchandler(async (req, res) => {
   const { email, password } = req.body;
   const clientIp = req.clientIp;
 
-  // Check if there are too many login attempts from this IP address
-  if (loginAttempts.has(clientIp)) {
-    const attempts = loginAttempts.get(clientIp);
-    if (attempts >= MAX_LOGIN_ATTEMPTS) {
-      return res.status(403).send("Too many login attempts. Try again later.");
-    }
-  }
-
   if (!email || !password) return res.status(400).send("fields can not be empty");
 
   const user = await USER.findOne({ email });
@@ -44,8 +36,6 @@ const login_users = asynchandler(async (req, res) => {
 
   if (await bcrypt.compare(password, user.password)) {
     // Successful login
-    // Reset the login attempts for this IP address
-    loginAttempts.delete(clientIp);
 
     const referredUsers = await USER.find(
       { referredBy: user.referCode },
@@ -61,9 +51,7 @@ const login_users = asynchandler(async (req, res) => {
     // send user object and token
     res.json({ ...userWithoutPassword._doc, token, referralCount, });
   } else {
-    res.status(400).json({
-      error: "Invalid credentials",
-    });
+    res.status(400).send("Invalid credentials",);
   }
 });
 
@@ -486,6 +474,41 @@ const searchItems = asynchandler(async (req, res) => {
     console.error(error);
     throw Object.assign(new Error(`${error}`), { statusCode: error.statusCode });
     ;
+  }
+});
+
+const uploadImg = asynchandler(async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  // Function to decode and save Data URL to a file
+  const saveDataURLToFile = (dataURL) => {
+    const matches = dataURL.match(/^data:(.+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      throw new Error('Invalid data URL format');
+    }
+
+    const [, mimeType, imageData] = matches;
+    const fileExtension = mimeType.split('/')[1];
+    const randomName = `${Date.now()}-${Math.round(Math.random() * 1E9)}.${fileExtension}`;
+    const filePath = path.join(__dirname, 'public/product-images', randomName);
+
+    fs.writeFileSync(filePath, Buffer.from(imageData, 'base64'));
+
+    return randomName;
+  };
+
+  const { image } = req.body;
+
+  if (!image) {
+    return res.status(400).send('No image data found.');
+  }
+
+  try {
+    const fileName = saveDataURLToFile(image);
+    res.send(fileName);
+  } catch (error) {
+    res.status(500).send('Failed to save the image.');
   }
 });
 
