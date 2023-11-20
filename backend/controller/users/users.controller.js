@@ -355,22 +355,17 @@ const updateUser = asynchandler(async (req, res) => {
     const updatUser = await USER.findById(userId);
     console.log(updatUser._id);
     if (
-      !(userId === updatUser._id.toString()) ||
-      !(process.env.role === "superadmin")
+      userId !== updatUser._id.toString() ||
+      process.env.role !== "superadmin"
     ) {
       throw Object.assign(new Error("Not authorized"), { statusCode: 403 });
     }
-
-    // Check if a file was uploaded
     if (req.body.data) {
-      // Upload file to Cloudinary
       const result = await cloudinary.uploader.upload(req.body.data, { resource_type: 'image', format: 'png' });
-      // Add the Cloudinary URL of the uploaded image to the update data
       updateData.profile_image = result.secure_url;
     }
-
     const updatedUser = await USER.findByIdAndUpdate(userId, updateData, {
-      new: true, // Return the updated user document
+      new: true,
     });
 
     if (!updatedUser) {
@@ -395,7 +390,6 @@ const updateUser = asynchandler(async (req, res) => {
 });
 const getLocation = asynchandler(async (ip) => {
   try {
-    // Set endpoint and your access key
     const accessKey = process.env.ip_secret_key;
     const url =
       "http://apiip.net/api/check?ip=" + ip + "&accessKey=" + accessKey;
